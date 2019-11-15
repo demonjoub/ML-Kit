@@ -1,15 +1,21 @@
 package cuzhy.com.mlkit
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.os.Bundle
+import android.provider.MediaStore
 import android.util.Log
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.loader.content.CursorLoader
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import cuzhy.com.mlkit.model.ExtraKey
-import kotlinx.android.synthetic.main.activity_results.view.*
+import kotlinx.android.synthetic.main.activity_main.*
 import java.io.IOException
 
 class ResultsActivity: AppCompatActivity() {
@@ -28,9 +34,44 @@ class ResultsActivity: AppCompatActivity() {
         val imageView = findViewById(R.id.imageView) as ImageView
         textView = findViewById(R.id.textView) as TextView
         val imageUri = Uri.parse(imagePath)
-        imageView.setImageURI(imageUri)
+        showImage(imageUri)
         detectTextOnDevice(imageUri)
     }
+
+    private fun showImage(uri:Uri) {
+        val imagePath = getRealPathFromUri(this, uri)
+        var exifInterface = ExifInterface(imagePath)
+        var orientation: Int = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED)
+        val bitmap = MediaStore.Images.Media.getBitmap(contentResolver , uri)
+
+        var rotatedBitmap = when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> rotateImage(bitmap, 90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> rotateImage(bitmap, 180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> rotateImage(bitmap, 270f)
+            else -> rotateImage(bitmap, 0f)
+        }
+        Log.d(TAG, orientation.toString())
+        imageView.setImageBitmap(rotatedBitmap)
+    }
+
+    private fun rotateImage(source: Bitmap, angle: Float): Bitmap {
+        val matrix = Matrix()
+        matrix.postRotate(angle)
+        return Bitmap.createBitmap(source, 0,0, source.width, source.height, matrix, true)
+    }
+
+    private fun getRealPathFromUri(context: Context, uri: Uri): String {
+        var proj = Array<String>(1){MediaStore.Images.Media.DATA}
+        var loader = CursorLoader(context, uri, proj, null, null,null)
+        var cursor = loader.loadInBackground()
+        var columnsIndex: Int = cursor?.getColumnIndex(MediaStore.Images.Media.DATA) as Int
+        cursor?.moveToFirst()
+        var result = cursor?.getString(columnsIndex)
+        cursor?.close()
+        return result
+    }
+
+
 
     private fun detectTextOnDevice(uri: Uri?) {
         if (uri == null) {
