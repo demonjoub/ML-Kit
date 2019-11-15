@@ -7,17 +7,12 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
-import android.util.Log
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
-import com.google.firebase.ml.vision.FirebaseVision
-import com.google.firebase.ml.vision.common.FirebaseVisionImage
-import com.google.firebase.ml.vision.text.FirebaseVisionText
-import java.io.IOException
+import cuzhy.com.mlkit.model.ExtraKey
 
 class MainActivity : AppCompatActivity() {
 
@@ -68,32 +63,6 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(cameraIntent, IMAGE_CAPTURE_CODE)
     }
 
-    private fun detectTextOnDevice(uri: Uri?) {
-        if (uri == null) {
-            Log.d(TAG, "detectTextOnDevice() result is null")
-        } else {
-            // 1
-            try {
-                val image = FirebaseVisionImage.fromFilePath(this, uri)
-                val detector = FirebaseVision.getInstance().onDeviceTextRecognizer
-                val result = detector.processImage(image)
-                    .addOnSuccessListener { firebaseVisionText ->
-                        // Task completed successfully
-                        Log.d(TAG, "Task completed successfully ${firebaseVisionText}")
-//                        resultText(firebaseVisionText)
-                        Log.d(TAG, "show text => ${firebaseVisionText.text}")
-                    }
-                    .addOnFailureListener { e ->
-                        // Task failed with an exception
-                        Log.d(TAG, "Task failed with an exception ${e}")
-                    }
-            }
-            catch (e: IOException) {
-                e.printStackTrace()
-            }
-        }
-    }
-
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         when(requestCode) {
             PERMISSION_CODE -> {
@@ -107,9 +76,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (resultCode == Activity.RESULT_OK) {
-            imageView?.setImageURI(image_uri)
-            detectTextOnDevice(image_uri)
+        if (resultCode == Activity.RESULT_OK && requestCode == IMAGE_CAPTURE_CODE) {
+            val intent = Intent(this, ResultsActivity::class.java)
+            intent.putExtra(ExtraKey.EXTRA_SESSION_ID, image_uri.toString())
+            startActivity(intent)
         }
     }
+
+
 }
