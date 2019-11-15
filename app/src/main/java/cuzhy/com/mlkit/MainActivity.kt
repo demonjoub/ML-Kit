@@ -7,10 +7,17 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.tasks.Task
+import com.google.firebase.FirebaseApp
+import com.google.firebase.ml.vision.FirebaseVision
+import com.google.firebase.ml.vision.common.FirebaseVisionImage
+import com.google.firebase.ml.vision.text.FirebaseVisionText
+import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
 
@@ -18,11 +25,15 @@ class MainActivity : AppCompatActivity() {
     private val IMAGE_CAPTURE_CODE: Int = 1001
     private var imageView: ImageView? = null
     var image_uri: Uri? = null
-
+    companion object {
+        const val TAG = "MainActivity"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        FirebaseApp.initializeApp(this)
 
         main()
     }
@@ -32,7 +43,6 @@ class MainActivity : AppCompatActivity() {
         imageView = findViewById(R.id.imageView) as ImageView
 
         btnCamera.setOnClickListener { view ->
-//            Toast.makeText(this, "You clicked me.", Toast.LENGTH_SHORT).show()
             if (checkSelfPermission(android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_DENIED ||
                 checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED ) {
                 // permission was not enable
@@ -58,6 +68,31 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(cameraIntent, IMAGE_CAPTURE_CODE)
     }
 
+    private fun detectTextOnDevice(uri: Uri?) {
+        if (uri == null) {
+            Log.d(TAG, "detectTextOnDevice() result is null")
+        } else {
+            // 1
+            try {
+                val image = FirebaseVisionImage.fromFilePath(this, uri)
+                val detector = FirebaseVision.getInstance().onDeviceTextRecognizer
+                val result = detector.processImage(image)
+                    .addOnSuccessListener { firebaseVisionText ->
+                        // Task completed successfully
+                        Log.d(TAG, "Task completed successfully ${firebaseVisionText}")
+//                        resultText(firebaseVisionText)
+                        Log.d(TAG, "show text => ${firebaseVisionText.text}")
+                    }
+                    .addOnFailureListener { e ->
+                        // Task failed with an exception
+                        Log.d(TAG, "Task failed with an exception ${e}")
+                    }
+            }
+            catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         when(requestCode) {
@@ -67,7 +102,6 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show()
                 }
-
             }
         }
     }
@@ -75,6 +109,7 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK) {
             imageView?.setImageURI(image_uri)
+            detectTextOnDevice(image_uri)
         }
     }
 }
